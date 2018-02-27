@@ -29,12 +29,13 @@ print br(), submit({-name =>'submit',
 			  		-value =>'Submit'}), "\n";
 print end_form;
 
-
-$instruction_lines = 0;
-$instruction_elements = 0;
-$nonempty_comments = 0; # sum of the numbers of single-line comments and multi-line comments
-$non_trivial_comments = 0;
-$comment_words = 0;
+@single_comments;
+@multiline_comments;
+$instruction_lines_num = 0;
+$instruction_elements_num = 0;
+$nonempty_comments_num = 0; # sum of the numbers of single-line comments and multi-line comments
+$non_trivial_comments_num = 0;
+$comment_words_num = 0;
 $comment_to_instruction_ratio = 0;
 $nontrivial_comment_to_instruction_ratio = 0;
 $comment_word_to_instruction_element_ratio = 0;
@@ -53,118 +54,102 @@ if(param('submit')){
 				$text = get(param('URL'));
 				if(defined($text)){ # No assignment, defined() -> false
 					print h6("Content of ".param('URL')), "\n";
-					#$text =~ s/\)/\)<br>/g; # not work??? need HTML linebreak tags
-					#print "Print with linebreak and escapeHTML(only br works in HTML):\n",$text;
-					# $text =~ s/\b(lt|br|gt)\b/<br>/g;
 					print $text;
 
+					@single_comments = get_single_comments($text);
+					#print br(), h6("<br>Single comments are:<br> "), join("<br> ", @single_comments); 
 					
-					push @single_comments , $1 while $text =~ /((\/\/|\#).*\b(\p{L}|\p{N})+)/g ;
-					print br(), h6("<br>Single comments are:<br> "), join("<br> ", @single_comments); 
-					remove_tag_word(@single_comments);
-
-					push @multiline_comments_without_linebreak, $& while $text =~ /\/\*(?:.|\n)*?\*\//g;
-					#@multiline_comments = split(//,)
-					# $comments_concat = "@multiline_comments_without_linebreak";
-					# @multiline_comments = split(/\*\/|.$/m,$comments_concat);
 					
-					print br(), h6("<br>Multi-line comments are:<br> "), join("<br>", @multiline_comments_without_linebreak); 
-					remove_tag_word(@multiline_comments_without_linebreak);
-					$nonempty_comments = scalar(@single_comments) 
-									+ count_comment_lines(@multiline_comments_without_linebreak);
+					@multiline_comments = get_multiline_comments($text);
+					#print br(), h6("<br>Multi-line comments are:<br> "), join("<br>", @multiline_comments); 
+					 
+					$nonempty_comments_num = count_nonempty_comments();
 					
 
 					print br(), h6("Non-trivial comments numbers: ");
-					$non_trivial_comments = scalar(count_trivial(@single_comments)) 
-							+ scalar(count_trivial(@multiline_comments_without_linebreak));
-					print "<br>total non-trivial comments: ", $non_trivial_comments;
+					$non_trivial_comments_num = count_nontrivial_comments();
+					#print "<br>total non-trivial comments: ", $non_trivial_comments_num;
 					
 					print br(),br(), h6("All words in all comments: <br>");
-					$_ = "@single_comments"."@multiline_comments_without_linebreak";
+					
 					# $_ =~ s/(lt|br|gt)//g; # replace <br>
-					while(/\b[(\p{L}|\p{N})]+\b/g) {print $&, ", "; $comment_words++; } 
+					$comment_words_num = get_comment_words("@single_comments"."@multiline_comments");
 
-					print br(), h6("Complete code"), br(), $text;
-					print br(), h6("Rest program code: "), br();
-					print "-----------Line numbers------- ", count_instruction_lines(),br(), $text, br();
+					print br(), h4("After removing comments, # of rest program code lines: ");
+					$instruction_lines_num = count_instruction_lines_num($text);
+					print "Line numbers: ",$instruction_lines_num, br();
 
 
 					print br(), h6("elements in instructions: <br>");
-					push @programe_elements , $& while $text =~ /(\b(?!\d)[\w]+\b|[-\+\*\%\!\=\>\<\&\|]+)/g ;
-					print "Total: ", count_elements(@programe_elements), br();
-					print join(", ", @programe_elements);
-						
-					table();
+					$instruction_elements_num = count_elements(get_program_words($text));
+					print "Total: ", $instruction_elements_num, br();
+					print join(", ", get_program_words($text));
+			
+					build_table();
 				}else{
 					print h3("Error: nothing to retrieve from the URL");	
 				}
 
-			}elsif(param('code')){
+		}elsif(param('code')){
 				$text = param('code');
 				print $text;
-
-					
-					push @single_comments , $1 while $text =~ /((\/\/|\#).*\b(\p{L}|\p{N})+)/g ;
-					print br(), h6("<br>Single comments are:<br> "), join("<br> ", @single_comments); 
-					remove_tag_word(@single_comments);
-
-					push @multiline_comments_without_linebreak, $& while $text =~ /\/\*(?:.|\n)*?\*\//g;
-					#@multiline_comments = split(//,)
-					# $comments_concat = "@multiline_comments_without_linebreak";
-					# @multiline_comments = split(/\*\/|.$/m,$comments_concat);
-					
-					print br(), h6("<br>Multi-line comments are:<br> "), join("<br>", @multiline_comments_without_linebreak); 
-					remove_tag_word(@multiline_comments_without_linebreak);
-					$nonempty_comments = scalar(@single_comments) 
-									+ count_comment_lines(@multiline_comments_without_linebreak);
+				@single_comments = get_single_comments($text);
+					#print br(), h6("<br>Single comments are:<br> "), join("<br> ", @single_comments); 						
+				@multiline_comments = get_multiline_comments($text);
+					#print br(), h6("<br>Multi-line comments are:<br> "), join("<br>", @multiline_comments); 
+					 
+				$nonempty_comments_num = count_nonempty_comments();
 					
 
-					print br(), h6("Non-trivial comments numbers: ");
-					$non_trivial_comments = scalar(count_trivial(@single_comments)) 
-							+ scalar(count_trivial(@multiline_comments_without_linebreak));
-					print "<br>total non-trivial comments: ", $non_trivial_comments;
+				print br(), h6("Non-trivial comments numbers: ");
+				$non_trivial_comments_num = count_nontrivial_comments();
+					#print "<br>total non-trivial comments: ", $non_trivial_comments_num;
 					
-					print br(),br(), h6("All words in all comments: <br>");
-					$_ = "@single_comments"."@multiline_comments_without_linebreak";
+				print br(),br(), h6("All words in all comments: <br>");
+					
 					# $_ =~ s/(lt|br|gt)//g; # replace <br>
-					while(/\b[(\p{L}|\p{N})]+\b/g) {print $&, ", "; $comment_words++; } 
+				$comment_words_num = get_comment_words("@single_comments"."@multiline_comments");
 
-					print br(), h6("Complete code"), br(), $text;
-					print br(), h6("Rest program code: "), br();
-					print "-----------Line numbers------- ", count_instruction_lines(),br(), $text, br();
+				print br(), h4("After removing comments, # of rest program code lines: ");
+				$instruction_lines_num = count_instruction_lines_num($text);
+				print "Line numbers: ",$instruction_lines_num, br();
 
 
-					print br(), h6("elements in instructions: <br>");
-					push @programe_elements , $& while $text =~ /(\b(?!\d)[\w]+\b|[-\+\*\%\!\=\>\<\&\|]+)/g ;
-					print "Total: ", count_elements(@programe_elements), br();
-					print join(", ", @programe_elements);
-
-			   	table();
-				
-			}else{
-				print h3("Error: nothing to retrieve from your input");
-			}
-
+				print br(), h6("elements in instructions: <br>");
+				$instruction_elements_num = count_elements(get_program_words($text));
+				print "Total: ", $instruction_elements_num, br();
+				print join(", ", get_program_words($text));
+			
+				build_table();	
+						
 		}else{
+				print h3("Error: nothing to retrieve from your input");
+		}
+
+	}else{
 		print h3("Error: please only submit either a URL or a code snippet, input again please")
 	}	
 }
 
-
-sub remove_tag_word{
+sub get_single_comments{	
 	return undef if(@_<1);
-	foreach (@_){
-		$_ =~ s/\b(lt|li|br|gt)\b//g; # replace < br > 
-	}
+	push @single_lines, $1 while $_[0] =~ /((\/\/|\#).*\b(\p{L}|\p{N})+)/g ;	
+	return @single_lines;
 }
 
-
-sub remove_comment{
-	$text =~ s/(((\/\/|\#).*\b(\p{L}|\p{N})+)|\/\*(?:.|\n)*?\*\/)//g;
-	# $text =~ s/\b(lt|li|br|gt)\b/<br>/g;
+sub get_multiline_comments{
+	return undef if(@_<1);
+	push @multi_lines, $& while $_[0] =~ /\/\*(?:.|\n)*?\*\//g;
+	return @multi_lines;
 }
 
-sub count_comment_lines{
+sub count_single_line_comments{
+	return undef if(@_<1);
+	return scalar(@_);
+}
+
+sub count_multiline_comments{
+	return undef if(@_<1);
 	my $counter = 0;
 	foreach(@_){
 		while(/^((\b[(\p{L}|\p{N})]+\b)+.*|.*(\b[(\p{L}|\p{N})]+\b)+|.*(\b[(\p{L}|\p{N})]+\b)+.*)$/gm){
@@ -172,33 +157,16 @@ sub count_comment_lines{
 		} 
 	}
 	# match one-line comment with at least one word characters
-	
 	print br(),"contains ", $counter, " lines of non-empty comment";
 	return $counter;
 }
 
-sub count_instruction_lines{
-	remove_comment();
-	remove_tag_word(@_);
-	# match instruction with at least one element
-	push @single_line, $& while $text =~ /^((\b(?!\d)[\w]+\b|[-\+\*\%\!\=\>\<\&\|])+.*|.*(\b(?!\d)[\w]+\b|[-\+\*\%\!\=\>\<\&\|])+|.*(\b(?!\d)[\w]+\b|[-\+\*\%\!\=\>\<\&\|])+.*)$/gm;
-	$instruction_lines = scalar(@single_line);
-	return $instruction_lines;
+sub count_nonempty_comments{
+	return count_single_line_comments(@single_comments)
+			+ count_multiline_comments(@multiline_comments);
 }
 
-sub count_elements{
-	return undef if(@_<1);
-	my $word_num = 0;
-	# remove_tag_word(@_);
-	
-	for(@_){
-		$word_num++;
-	}
-	$instruction_elements = $word_num;
-	return $instruction_elements;
-}
-
-sub count_trivial{		
+sub count_non_trivial{		
 	return undef if(@_<1);
 	my $counter = 0;
 	my @non_trivial;
@@ -216,30 +184,75 @@ sub count_trivial{
 	return @non_trivial;
 }
 
-sub table{
+sub count_nontrivial_comments{
+	return scalar(count_non_trivial(@single_comments)) 
+			+ scalar(count_non_trivial(@multiline_comments));
+}
+
+sub get_comment_words{
+	return undef if(@_<1);
+	my $words;
+	$_ = @_[0];
+	while(/\b[(\p{L}|\p{N})]+\b/g) {print $&, ", "; $words++;}
+	return $words;
+}
+
+sub remove_comments{
+	return undef if(@_<1);
+	@_[0] =~ s/(((\/\/|\#).*\b(\p{L}|\p{N})+)|\/\*(?:.|\n)*?\*\/)//g;
+}
+
+sub count_instruction_lines_num{
+	return undef if(@_<1);
+	remove_comments(@_[0]);
+	# match instruction with at least one element
+	push @single_line, $& while @_[0] =~ /^((\b(?!\d)[\w]+\b|[-\+\*\%\!\=\>\<\&\|])+.*|.*(\b(?!\d)[\w]+\b|[-\+\*\%\!\=\>\<\&\|])+|.*(\b(?!\d)[\w]+\b|[-\+\*\%\!\=\>\<\&\|])+.*)$/gm;
+	return scalar(@single_line);
+}
+
+sub get_program_words{
+	return undef if(@_<1);
+	my @programe_words;
+	push @programe_words, $& while @_[0] =~ /(\b(?!\d)[\w]+\b|[-\+\*\%\!\=\>\<\&\|]+)/g ;
+	return @programe_words;
+}
+					
+sub count_elements{
+	return undef if(@_<1);
+    my $word_num = 0;
+ 	
+	for(@_){
+		$word_num++;
+	}						
+	return $word_num;
+}
+
+
+
+sub build_table{
 	print h4("Analysis"), "\n";
 	print start_table ({- border => 2,
 					    - width => '70%' });
 	print caption ("Code Analysis");
 	
-	print Tr(td('Number of lines of instruction'), td($instruction_lines));
-	print Tr(td('Number of elements of instruction'), td($instruction_elements));
-	print Tr(td('Number of non-empty lines of comment'), td($nonempty_comments));
-	print Tr(td('Number of non-trivial comments'), td($non_trivial_comments));
-	print Tr(td('Number of words of comment'), td($comment_words));
-	if($instruction_lines != 0){
-		print Tr(td('Ratio of lines of comment to lines of instruction'), td(sprintf("%.1f", $nonempty_comments/$instruction_lines)));
-		print Tr(td('Ratio of non-trivial comments to lines of instruction'), td(sprintf("%.1f", $non_trivial_comments/$instruction_lines)));
+	print Tr(td('Number of lines of instruction'), td($instruction_lines_num));
+	print Tr(td('Number of elements of instruction'), td($instruction_elements_num));
+	print Tr(td('Number of non-empty lines of comment'), td($nonempty_comments_num));
+	print Tr(td('Number of non-trivial comments'), td($non_trivial_comments_num));
+	print Tr(td('Number of words of comment'), td($comment_words_num));
+	if($instruction_lines_num != 0){
+		print Tr(td('Ratio of lines of comment to lines of instruction'), td(sprintf("%.1f", $nonempty_comments_num/$instruction_lines_num)));
+		print Tr(td('Ratio of non-trivial comments to lines of instruction'), td(sprintf("%.1f", $non_trivial_comments_num/$instruction_lines_num)));
 	}else{
 		print Tr(td('Ratio of lines of comment to lines of instruction'), td("NAN"));
 		print Tr(td('Ratio of non-trivial comments to lines of instruction'), td("NAN"));
 	}
-	if($instruction_elements != 0){
-		print Tr(td('Ratio of words of comment to elements of instruction'), td( sprintf("%.1f", $comment_words/$instruction_elements)));
+	if($instruction_elements_num != 0){
+		print Tr(td('Ratio of words of comment to elements of instruction'), td( sprintf("%.1f", $comment_words_num/$instruction_elements_num)));
 	}else{
 		print Tr(td('Ratio of words of comment to elements of instruction'), td("NAN"));	
 	}
 	print end_table;
 }
 
-print end_html;
+print end_html ;
