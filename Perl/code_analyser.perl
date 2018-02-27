@@ -242,4 +242,4 @@ sub table{
 	print end_table;
 }
 
-print end_html ;
+print end_html;
